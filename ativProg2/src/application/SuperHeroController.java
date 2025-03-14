@@ -2,18 +2,15 @@ package application;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import javax.swing.DefaultListModel;
+import java.io.File;
+import java.io.IOException;
+import javax.swing.*;
 import javafx.application.Platform;
 import javafx.embed.swing.JFXPanel;
 import javafx.scene.Scene;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import javafx.scene.media.MediaView;
-import java.io.File;
-import javax.swing.ImageIcon;
-import javax.swing.JFileChooser;
-import javax.swing.JOptionPane;
-import java.awt.Image;
 
 class SuperHeroController {
     private SuperHeroView view;
@@ -26,6 +23,11 @@ class SuperHeroController {
         this.view = view;
         this.model = model;
 
+        // Inicializa o JFXPanel para reprodução de vídeo
+        jfxPanel = new JFXPanel();
+        view.setVideoPanel(jfxPanel);
+
+        // Adiciona listeners aos botões
         this.view.addAddButtonListener(new AddHeroListener());
         this.view.addUpdateButtonListener(new UpdateHeroListener());
         this.view.addDeleteButtonListener(new DeleteHeroListener());
@@ -35,14 +37,11 @@ class SuperHeroController {
         this.view.addPauseButtonListener(new PauseVideoListener());
         this.view.addImageButtonListener(new AddImageListener());
         this.view.addVideoButtonListener(new AddVideoListener());
-        // Inicializa o JFXPanel para reprodução de vídeo
-        jfxPanel = new JFXPanel();
-        view.setVideoPanel(jfxPanel);
+        this.view.addSaveButtonListener(new SaveButtonListener());
+        this.view.addLoadButtonListener(new LoadButtonListener());
 
         updateHeroList();
     }
-
-
 
     class AddImageListener implements ActionListener {
         public void actionPerformed(ActionEvent e) {
@@ -51,13 +50,15 @@ class SuperHeroController {
             int returnValue = fileChooser.showOpenDialog(view.getFrame());
             if (returnValue == JFileChooser.APPROVE_OPTION) {
                 File selectedFile = fileChooser.getSelectedFile();
-                // Verifica se o arquivo é uma imagem
                 if (isImageFile(selectedFile)) {
-                    // Associa a imagem ao super-herói selecionado
                     if (currentHeroIndex != -1) {
                         SuperHero selectedHero = model.getSuperHeroes().get(currentHeroIndex);
                         selectedHero.setImagePath(selectedFile.getAbsolutePath());
-                        view.setImagePath(selectedFile.getAbsolutePath()); // Atualiza a imagem na interface
+                        view.setImagePath(selectedFile.getAbsolutePath());
+
+                        // Exibe a imagem na interface
+                        ImageIcon icon = new ImageIcon(selectedFile.getAbsolutePath());
+                        view.setImage(icon);
                     }
                 } else {
                     JOptionPane.showMessageDialog(view.getFrame(), "Por favor, selecione um arquivo de imagem válido.", "Erro", JOptionPane.ERROR_MESSAGE);
@@ -78,9 +79,7 @@ class SuperHeroController {
             int returnValue = fileChooser.showOpenDialog(view.getFrame());
             if (returnValue == JFileChooser.APPROVE_OPTION) {
                 File selectedFile = fileChooser.getSelectedFile();
-                // Verifica se o arquivo é um vídeo
                 if (isVideoFile(selectedFile)) {
-                    // Associa o vídeo ao super-herói selecionado
                     if (currentHeroIndex != -1) {
                         SuperHero selectedHero = model.getSuperHeroes().get(currentHeroIndex);
                         selectedHero.setVideoPath(selectedFile.getAbsolutePath());
@@ -97,10 +96,33 @@ class SuperHeroController {
         }
     }
 
-
     class AddHeroListener implements ActionListener {
         public void actionPerformed(ActionEvent e) {
-            SuperHero hero = new SuperHero(view.getName(), view.getDescription(), view.getPowers(), view.getGroup(), view.getSkills(), "path/to/image", "path/to/video");
+            String type = view.getSelectedType(); // Obtém o tipo selecionado (Herói ou Vilão)
+            SuperHero hero;
+
+            if (type.equals("Herói")) {
+                hero = new Hero(
+                    view.getName(),
+                    view.getDescription(),
+                    view.getPowers(),
+                    view.getGroup(),
+                    view.getSkills(),
+                    "path/to/image",
+                    "path/to/video"
+                );
+            } else {
+                hero = new Villan(
+                    view.getName(),
+                    view.getDescription(),
+                    view.getPowers(),
+                    view.getGroup(),
+                    view.getSkills(),
+                    "path/to/image",
+                    "path/to/video"
+                );
+            }
+
             model.addSuperHero(hero);
             updateHeroList();
         }
@@ -110,7 +132,31 @@ class SuperHeroController {
         public void actionPerformed(ActionEvent e) {
             int selectedIndex = view.getSelectedHeroIndex();
             if (selectedIndex != -1) {
-                SuperHero hero = new SuperHero(view.getName(), view.getDescription(), view.getPowers(), view.getGroup(), view.getSkills(), "path/to/image", "path/to/video");
+                String type = view.getSelectedType(); // Obtém o tipo selecionado (Herói ou Vilão)
+                SuperHero hero;
+
+                if (type.equals("Herói")) {
+                    hero = new Hero(
+                        view.getName(),
+                        view.getDescription(),
+                        view.getPowers(),
+                        view.getGroup(),
+                        view.getSkills(),
+                        "path/to/image",
+                        "path/to/video"
+                    );
+                } else {
+                    hero = new Villan(
+                        view.getName(),
+                        view.getDescription(),
+                        view.getPowers(),
+                        view.getGroup(),
+                        view.getSkills(),
+                        "path/to/image",
+                        "path/to/video"
+                    );
+                }
+
                 model.updateSuperHero(selectedIndex, hero);
                 updateHeroList();
             }
@@ -163,6 +209,39 @@ class SuperHeroController {
         }
     }
 
+    class SaveButtonListener implements ActionListener {
+        public void actionPerformed(ActionEvent e) {
+            JFileChooser fileChooser = new JFileChooser();
+            int returnValue = fileChooser.showSaveDialog(view.getFrame());
+            if (returnValue == JFileChooser.APPROVE_OPTION) {
+                File selectedFile = fileChooser.getSelectedFile();
+                try {
+                    model.saveToFile(selectedFile.getAbsolutePath());
+                    JOptionPane.showMessageDialog(view.getFrame(), "Dados salvos com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                } catch (IOException ex) {
+                    JOptionPane.showMessageDialog(view.getFrame(), "Erro ao salvar arquivo.", "Erro", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }
+    }
+
+    class LoadButtonListener implements ActionListener {
+        public void actionPerformed(ActionEvent e) {
+            JFileChooser fileChooser = new JFileChooser();
+            int returnValue = fileChooser.showOpenDialog(view.getFrame());
+            if (returnValue == JFileChooser.APPROVE_OPTION) {
+                File selectedFile = fileChooser.getSelectedFile();
+                try {
+                    model.loadFromFile(selectedFile.getAbsolutePath());
+                    updateHeroList();
+                    JOptionPane.showMessageDialog(view.getFrame(), "Dados carregados com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                } catch (IOException ex) {
+                    JOptionPane.showMessageDialog(view.getFrame(), "Erro ao carregar arquivo.", "Erro", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }
+    }
+
     private void updateHeroList() {
         DefaultListModel<SuperHero> modelList = new DefaultListModel<>();
         for (SuperHero hero : model.getSuperHeroes()) {
@@ -171,17 +250,22 @@ class SuperHeroController {
         view.setHeroListModel(modelList);
         currentHeroIndex = -1;
         view.setImage(null);
+        view.setDescription("");
+        view.setName(""); 
+        view.setPowers(""); 
+        view.setGroup(""); 
+        view.setSkills(""); 
     }
 
     private void displaySelectedHero() {
-        if (currentHeroIndex != -1) {
+        if (currentHeroIndex != -1 && currentHeroIndex < model.getSuperHeroes().size()) {
             SuperHero selectedHero = model.getSuperHeroes().get(currentHeroIndex);
 
             // Exibir a imagem do super-herói
             String imagePath = selectedHero.getImagePath();
             if (imagePath != null && !imagePath.isEmpty()) {
                 ImageIcon icon = new ImageIcon(imagePath);
-                view.setImage(icon); // Método que deve ter na view para definir a imagem
+                view.setImage(icon);
             } else {
                 view.setImage(null); // Limpa a imagem se não houver caminho
             }
@@ -192,10 +276,14 @@ class SuperHeroController {
     }
 
     private void playVideo(String videoPath) {
-        if (mediaPlayer != null) {
-            mediaPlayer.stop(); // Para o vídeo atual, se houver
+        if (videoPath == null || videoPath.isEmpty()) {
+            JOptionPane.showMessageDialog(view.getFrame(), "Nenhum vídeo selecionado.", "Erro", JOptionPane.ERROR_MESSAGE);
+            return;
         }
-        Media media = new Media(videoPath);
+        if (mediaPlayer != null) {
+            mediaPlayer.stop();
+        }
+        Media media = new Media(new File(videoPath).toURI().toString());
         mediaPlayer = new MediaPlayer(media);
         MediaView mediaView = new MediaView(mediaPlayer);
         Scene scene = new Scene(new javafx.scene.Group(mediaView));
@@ -203,4 +291,3 @@ class SuperHeroController {
         mediaPlayer.play();
     }
 }
-
